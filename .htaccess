@@ -1,0 +1,22 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^$ public/ [L]
+    RewriteRule (.*) public/$1 [L]
+</IfModule>
+
+# The rewrite above is the ONLY thing keeping the project root out of the web
+# root under XAMPP. If mod_rewrite is off, or AllowOverride is None, it stops
+# applying silently and .env / storage / vendor become directly fetchable.
+# These denials are the fallback for exactly that case — see DEPLOYMENT.md,
+# which explains how to point DocumentRoot at public/ and retire this file.
+<FilesMatch "^\.env|^\.env\..*|^composer\.(json|lock)$|^package(-lock)?\.json$|\.(sqlite|sql|log|md|yml|yaml)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+Options -Indexes

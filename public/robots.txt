@@ -1,0 +1,7 @@
+User-agent: *
+# Tracking and unsubscribe links are per-recipient and must never be crawled:
+# a crawler following them would poison open/click analytics.
+Disallow: /track/
+Disallow: /unsubscribe/
+Disallow: /admin/
+Disallow: /profile
