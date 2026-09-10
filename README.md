@@ -128,6 +128,8 @@ php artisan test
 
 ---
 
-## 📄 License
+## 📄 License & Copyright
 
-This project is open-sourced software licensed under the [MIT license](LICENSE).
+© Proprietary & Confidential. All Rights Reserved.
+
+**MailVance** is a commercial software product. Unauthorized copying, modification, distribution, sublicensing, or selling of this software, via any medium, is strictly prohibited without explicit written permission from the copyright owner.
