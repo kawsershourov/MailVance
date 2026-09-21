@@ -75,7 +75,7 @@
                             </div>
                             <div class="flex justify-between">
                                 <span class="text-slate-500 flex-shrink-0 mr-3">Sender Name:</span>
-                                <span class="text-slate-200 truncate min-w-0">{{ $s->from_name ?: "MailFlow" }}</span>
+                                <span class="text-slate-200 truncate min-w-0">{{ $s->from_name ?: "MailVance" }}</span>
                             </div>
                         </div>
                     </div>

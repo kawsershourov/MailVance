@@ -4,8 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ $title ?? "MailFlow" }} - Enterprise Email Marketing & Sender</title>
-    
+    <title>{{ $title ?? ($siteSettings ?? null)?->displayTitle() ?? "MailVance" }} - {{ ($siteSettings ?? null)?->displayTagline() ?? "Enterprise Email Marketing & Sender" }}</title>
+    <link rel="icon" href="{{ ($siteSettings ?? null)?->faviconUrl() ?? asset('img/default-favicon.svg') }}">
+
     <!-- Google Fonts & Tailwind -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,6 +22,16 @@
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 9999px; }
         ::-webkit-scrollbar-thumb:hover { background: #475569; }
     </style>
+
+    @if(($siteSettings ?? null)?->brand_color)
+        <style>
+            :root {
+                @foreach($siteSettings->brandPaletteRgb() as $shade => $rgb)
+                --brand-{{ $shade }}: {{ $rgb }};
+                @endforeach
+            }
+        </style>
+    @endif
 </head>
 @php
     $currentPageTitle = 'Dashboard';
@@ -32,6 +43,7 @@
         'deliverability.*' => 'Deliverability',
         'admin.users.*' => 'Users',
         'admin.roles.*' => 'Roles & Permissions',
+        'admin.settings.*' => 'Site Settings',
         'profile.*' => 'My Profile',
     ] as $pattern => $label) {
         if (request()->routeIs($pattern)) { $currentPageTitle = $label; break; }
@@ -146,6 +158,20 @@
             @endif
 
             @yield('content')
+
+            @if(($siteSettings ?? null)?->company_name || ($siteSettings ?? null)?->support_email)
+                <footer class="mt-10 pt-6 border-t border-slate-800/60 text-center text-xs text-slate-500">
+                    @if($siteSettings->company_name)
+                        <span>{{ $siteSettings->company_name }}</span>
+                    @endif
+                    @if($siteSettings->company_name && $siteSettings->support_email)
+                        <span class="mx-2">&middot;</span>
+                    @endif
+                    @if($siteSettings->support_email)
+                        <a href="mailto:{{ $siteSettings->support_email }}" class="hover:text-slate-300 transition">{{ $siteSettings->support_email }}</a>
+                    @endif
+                </footer>
+            @endif
           </div>
         </main>
     </div>

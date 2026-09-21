@@ -8,7 +8,11 @@ MailFlow — a Laravel 11 email marketing/campaign platform. Users connect SMTP 
 
 Server-rendered Blade views styled with Tailwind CSS, sprinkled with Alpine.js for interactivity and Chart.js for dashboard charts — there is no SPA/API layer or JS framework build beyond Vite bundling `resources/js/app.js` and `resources/css/app.css`.
 
-Planning docs for the original build are kept in `plan/` (overall architecture + ER diagram in `plan/email_sender_platform_plan.md`) and `phase/` (per-phase specs). These describe intended design and are useful background, but always verify against actual code — implementation may have diverged.
+The README brands the product **MailVance**; `MailFlow` is the internal name still used by `config/mailflow.php`, `DEPLOYMENT.md` and the planning docs. Both refer to this codebase.
+
+Planning docs for the original build are kept in `plan/` (overall architecture + ER diagram in `plan/email_sender_platform_plan.md`), `phase/` (per-phase specs) and `spec/bug_fix_spec.md` (the hardening pass that produced most of the security architecture below). These describe intended design and are useful background, but always verify against actual code — implementation may have diverged.
+
+`DEPLOYMENT.md` is not background: it is the hard requirements for an internet-facing install (document root must be `public/`, `APP_KEY` must never be rotated in place because it decrypts every stored SMTP password, `TRUSTED_PROXIES` must be set or the IP-keyed rate limiters collapse into one bucket). Read it before changing anything about hosting, `.env` defaults, or the `.htaccess`.
 
 ## Commands
 
@@ -30,7 +34,7 @@ npm run build                        # production asset build
 # Tests (PHPUnit, not Pest)
 php artisan test
 php artisan test --filter=test_method_name
-php artisan test tests/Feature/EmailSenderPlatformTest.php
+php artisan test tests/Feature/SecurityTest.php
 
 # Lint / format (Laravel Pint)
 vendor/bin/pint
@@ -41,7 +45,9 @@ php artisan migrate
 php artisan migrate:fresh
 ```
 
-Testing uses `QUEUE_CONNECTION=sync`, `MAIL_MAILER=array`, and an in-memory SQLite DB (see `phpunit.xml`), so queued jobs run inline, no real mail is sent, and the test run never touches the MySQL dev database.
+Testing uses `QUEUE_CONNECTION=sync`, `MAIL_MAILER=array`, and an in-memory SQLite DB (see `phpunit.xml`), so queued jobs run inline, no real mail is sent, and the test run never touches the MySQL dev database. The suite is four real files: `EmailSenderPlatformTest` (happy-path CRUD + send flow), `SecurityTest` and `BugFixRegressionTest` (the two largest — they pin the hardening invariants described under **Security model**; a change that trips one of these is almost certainly reintroducing a fixed vulnerability), and `UserProfileAndPermissionsTest` (RBAC + profile).
+
+`composer run dev` starts server, queue worker, log tailer and vite — but **not** `schedule:work`. Scheduled-send launches, hourly-cap auto-resume, and temp-upload pruning need it running separately.
 
 Local setup uses the XAMPP MariaDB instance (`DB_CONNECTION=mysql`, database `email_sender`, socket `/Applications/XAMPP/xamppfiles/var/mysql/mysql.sock`) with `QUEUE_CONNECTION=database` and `MAIL_MAILER=log` per `.env`. The queue driver is `database`, so a queue worker (`php artisan queue:listen` / `queue:work`) must be running for campaign emails to actually go out — the web request only enqueues jobs. Campaign mail does not use `MAIL_MAILER`; `SmtpMailService` builds its own transport per `SmtpConfig` row.
 
@@ -49,7 +55,9 @@ Local setup uses the XAMPP MariaDB instance (`DB_CONNECTION=mysql`, database `em
 
 ### Domain model
 
-`User` owns `SmtpConfig` (multiple SMTP relays), `ContactList` → `Contact` (many-to-one), `EmailTemplate`, and `Campaign`. A `Campaign` references one `SmtpConfig`, one `ContactList`, and one `EmailTemplate`, and produces one `CampaignLog` row per recipient (created at launch time from the target list's contacts). `SuppressionList` is a global (not per-user) table of emails to never send to. Schema lives entirely in one migration: `database/migrations/2026_08_31_000001_create_email_sender_tables.php`.
+`User` owns `SmtpConfig` (multiple SMTP relays), `ContactList` → `Contact` (many-to-one), `EmailTemplate`, and `Campaign`. A `Campaign` references one `SmtpConfig`, one `ContactList`, and one `EmailTemplate`, and produces one `CampaignLog` row per recipient (created at launch time from the target list's contacts). The bulk of the schema is one migration (`2026_08_31_000001_create_email_sender_tables.php`), with three follow-ups layered on top: `2026_09_01_000001` (template `design` JSON), `2026_09_01_000002` (roles/permissions + user profile columns), and `2026_09_02_000001` (suppression scoping). Check all four before assuming a column's shape.
+
+`SuppressionList` is **owned, not global** — it carries a nullable `user_id`, and the unique index is `(user_id, email)`. A null `user_id` is a platform-wide entry an operator added; every other row belongs to one account. It was global once, which made the public unsubscribe endpoint a cross-tenant weapon: suppressing an address for one sender removed it from everybody else's campaigns. Always resolve entries through `SuppressionList::appliesTo($userId)` (own rows + platform-wide) or `lookupFor($userId)` (a flipped array for O(1) membership tests during import) — never query `email` alone.
 
 ### Campaign send flow
 
@@ -67,11 +75,22 @@ Because throttling happens via blocking `usleep()` inside the job rather than La
 
 ### Tracking
 
-Each `CampaignLog` gets a unique `tracking_token` at creation. `TrackingController` (public, unauthenticated routes) serves `/track/open/{token}.png` (1x1 pixel, marks `is_opened`), `/track/click/{token}?url=...` (marks `is_clicked`, redirects), and `/unsubscribe/{token}` (adds the contact's email to `suppression_lists`). Outbound links are rewritten to the click-tracking endpoint by `TemplateRendererService::rewriteLinksForTracking`, which explicitly skips rewriting `/unsubscribe/` links.
+Each `CampaignLog` gets a unique `tracking_token` (a per-recipient UUIDv4) at creation. That token is the *only* credential these public, unauthenticated routes accept — nothing here trusts a caller-supplied address. `TrackingController` serves:
+
+- `/track/open/{token}.png` — 1x1 pixel, marks `is_opened`.
+- `/track/click/{token}?url=...&sig=...` — marks `is_clicked`, then redirects **only if** `sig` is a valid HMAC over `url`. Campaign links legitimately point anywhere on the web, so an allowlist is impossible; instead `TrackingUrlSigner` stamps every URL at rewrite time and the redirect drops anything it did not stamp. Without this the endpoint is an open redirect on the sending domain. `isRedirectable()` additionally confines schemes to http/https (`FILTER_VALIDATE_URL` alone passes `javascript:`). The signing key is `config('app.key')`, base64-decoded.
+- `GET /unsubscribe/{token}` — **read-only confirmation page**. Mail clients, link scanners and browser prefetch all fire GETs, so a GET that suppressed the recipient would unsubscribe people who never clicked.
+- `POST /unsubscribe/{token}` — the acting route, and what RFC 8058 one-click actually calls. Adds to `suppression_lists` scoped to the *campaign owner*, and marks matching contacts `unsubscribed` only within that owner's lists. CSRF is exempted for `unsubscribe/*` in `bootstrap/app.php` because the provider POSTs with no session.
+
+Outbound links are rewritten to the click-tracking endpoint by `TemplateRendererService::rewriteLinksForTracking`, which explicitly skips rewriting `/unsubscribe/` links.
 
 ### CSV import
 
-`CsvStreamService` handles both the upload preview (`inspectHeaders` — sniffs headers + auto-maps `email`/`first_name`/`last_name`/`company` by column-name heuristics, returns 5 sample rows) and the actual import (`streamImport` — raw `fopen`/`fgetcsv` streaming, not loaded into memory at once, batched `insertOrIgnore` every 1000 rows, RFC email validation, suppression-list filtering, and any unmapped columns preserved into `contacts.custom_fields` JSON keyed by original header name). Contacts are deduped via a DB-level unique constraint on `(contact_list_id, email)`, so `insertOrIgnore` is what makes re-imports/duplicates safe.
+`CsvStreamService` handles both the upload preview (`inspectHeaders` — sniffs headers + auto-maps `email`/`first_name`/`last_name`/`company` by column-name heuristics, returns 5 sample rows) and the actual import (`streamImport` — raw `fopen`/`fgetcsv` streaming, not loaded into memory at once, batched `insertOrIgnore` every 1000 rows, RFC email validation, suppression-list filtering, and any unmapped columns preserved into `contacts.custom_fields` JSON keyed by original header name). Contacts are deduped via a DB-level unique constraint on `(contact_list_id, email)`, so `insertOrIgnore` is what makes re-imports/duplicates safe. `streamImport` takes an `$ownerId` so suppression filtering resolves against that account's entries.
+
+Import is a **two-request handshake**, and the second request must never trust the first's output. `uploadCsvPreview` stores the file under `storage/app/private/csv_temp` with a generated name and registers a cache token keyed `csv_import_token:{userId}:{filename}`. `processCsvImport` resolves the client-supplied reference back to a real path through `resolveCsvUploadPath()`, which requires all four of: the reference is a bare filename (`basename($ref) === $ref`), a `Cache::pull` of that user's token succeeds (single-use, so an upload reference cannot be replayed), and `realpath` still lands inside `csv_temp`. Keep all four if you touch this — the client once supplied the path directly, which was an arbitrary-file-read.
+
+An upload that previews cleanly but is never imported is orphaned, so `contacts:prune-temp-uploads` (scheduled hourly, `--hours=2`) reaps `csv_temp`. At 200MB per file with no per-user quota, this is what stops a disk filling.
 
 ### Template merge tags
 
@@ -98,6 +117,20 @@ To fit that 620px+ frame on a narrow screen, the preview is shrunk with a **CSS 
 ### Deliverability checks
 
 `DeliverabilityScoreService` is two independent, stateless checks: `checkDomainDns()` does live DNS lookups (`dns_get_record`) for MX/SPF/DMARC on a given domain, and `analyzeSpamScore()` does static keyword/heuristic analysis (spam trigger words, all-caps subject, exclamation spam, HTML-to-text ratio) on template content — no external API calls involved in either.
+
+### Security model
+
+Most of this was retrofitted in one hardening pass (`spec/bug_fix_spec.md`) and is pinned by `tests/Feature/SecurityTest.php`. Each control exists because its absence was exploitable — don't relax one without reading the comment that explains the cost.
+
+**SMTP relay egress.** Users supply their own relay host and the diagnostics screen opens a socket to it, so without limits the platform is an internal port scanner. `App\Rules\SafeSmtpHost` (used on store/update) requires a bare hostname or IP — which is also what blocks `smtp.example.com?verify_peer=0` from reaching `Transport::fromDsn()` and silently disabling cert verification — then resolves **every** A/AAAA record and rejects the host if any is private/reserved (a name with one public and one private record must not slip through). Ports are confined to `config('mailflow.smtp.allowed_ports')`. `block_private_hosts` may be disabled only for single-tenant installs where relays are legitimately on the LAN.
+
+**SMTP credentials.** `SmtpConfig::$casts` marks `password` as `encrypted` (hence the `APP_KEY` rotation warning in `DEPLOYMENT.md`) and `$hidden` drops it from serialization — views `json_encode()` the model to seed the edit modal, which would otherwise print the credential into page HTML. `smtp_password` is also in the `dontFlash` list in `bootstrap/app.php`, so a validation bounce cannot round-trip it into the session.
+
+**Rate limiting.** Laravel 11 ships no `RouteServiceProvider`, so every named limiter is declared in `AppServiceProvider::configureRateLimiting()` — a route referencing a limiter that isn't declared there will fail. Existing buckets: `login` (keyed on email **and** IP, so an attacker can't lock a known victim out), `register`, `smtp-test`, `csv-upload`, `campaign-launch`, `preview`, `deliverability`, `tracking`, `unsubscribe`. Authenticated limiters key on user id, falling back to IP (`actorKey()`).
+
+**Response headers.** `SecurityHeaders` middleware is appended to the `web` group: frame denial, nosniff, referrer policy (which is what stops `/track/click` leaking campaign URLs to third-party sites), permissions policy, and a CSP. The CSP still needs `'unsafe-inline'`/`'unsafe-eval'` for script because the template editor is Alpine-driven with inline handlers — everything else is locked down. HSTS is only emitted over TLS in production.
+
+**Other.** Registration is off by default (`config('mailflow.allow_registration')`); the routes stay registered so `route('register')` resolves, and the controller 404s rather than leaking that the feature exists. Password defaults are min-12/mixed-case/numbers, with the haveibeenpwned check added only in production. `trustProxies` reads `TRUSTED_PROXIES`. Template logos and profile avatars live on the **private** disk and are streamed through authorized controller routes, never served from `public/`.
 
 ### Authorization
 

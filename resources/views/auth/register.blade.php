@@ -3,18 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Create Account - MailFlow</title>
+    <title>Create Account - {{ ($siteSettings ?? null)?->displayTitle() ?? 'MailVance' }}</title>
+    <link rel="icon" href="{{ ($siteSettings ?? null)?->faviconUrl() ?? asset('img/default-favicon.svg') }}">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <!-- Vite Assets -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+
+    @if(($siteSettings ?? null)?->brand_color)
+        <style>
+            :root {
+                @foreach($siteSettings->brandPaletteRgb() as $shade => $rgb)
+                --brand-{{ $shade }}: {{ $rgb }};
+                @endforeach
+            }
+        </style>
+    @endif
 </head>
 <body class="h-full flex items-center justify-center p-4 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(99,102,241,0.25),rgba(255,255,255,0))]">
 
     <div class="w-full max-w-md">
         <!-- Logo & Header -->
         <div class="text-center mb-8">
-            <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-brand-600 via-indigo-600 to-violet-500 shadow-xl shadow-brand-500/25 mb-4 text-white">
-                <i data-lucide="send" class="w-7 h-7"></i>
+            <div class="inline-flex items-center gap-3 mb-4">
+                @include('partials.site-logo', ['size' => 'lg'])
+                <span class="text-2xl font-extrabold tracking-tight text-white">{{ ($siteSettings ?? null)?->displayTitle() ?? 'MailVance' }}</span>
             </div>
             <h2 class="text-3xl font-extrabold text-white tracking-tight">Create Account</h2>
             <p class="text-sm text-slate-400 mt-2">Start sending high-inbox email campaigns today</p>

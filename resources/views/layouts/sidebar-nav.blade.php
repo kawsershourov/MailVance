@@ -17,6 +17,7 @@
         'Administration' => [
             ['route' => 'admin.users.index', 'pattern' => 'admin.users.*', 'icon' => 'users-round', 'label' => 'Users', 'permission' => 'users.view'],
             ['route' => 'admin.roles.index', 'pattern' => 'admin.roles.*', 'icon' => 'key-round', 'label' => 'Roles & Permissions', 'permission' => 'roles.view'],
+            ['route' => 'admin.settings.edit', 'pattern' => 'admin.settings.*', 'icon' => 'settings', 'label' => 'Site Settings', 'permission' => 'settings.manage'],
         ],
         'Account' => [
             ['route' => 'profile.edit', 'pattern' => 'profile.*', 'icon' => 'user-round', 'label' => 'My Profile', 'permission' => null],
@@ -40,10 +41,8 @@
 
 <div class="flex items-center justify-between gap-3 px-1 mb-6">
     <a href="{{ route('dashboard') }}" class="flex items-center gap-2.5 min-w-0">
-        <span class="w-9 h-9 rounded-lg bg-brand-600 flex items-center justify-center text-white flex-shrink-0">
-            <i data-lucide="send" class="w-[18px] h-[18px]"></i>
-        </span>
-        <span class="text-[15px] font-bold tracking-tight text-white truncate">MailFlow</span>
+        @include('partials.site-logo', ['size' => 'sm'])
+        <span class="text-[15px] font-bold tracking-tight text-white truncate">{{ ($siteSettings ?? null)?->displayTitle() ?? 'MailVance' }}</span>
     </a>
 
     <button @click="sidebarOpen = false"

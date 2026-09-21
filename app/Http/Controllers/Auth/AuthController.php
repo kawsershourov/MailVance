@@ -98,7 +98,7 @@ class AuthController extends Controller
 
         Auth::login($user);
 
-        return redirect()->route('dashboard')->with('success', 'Account created successfully! Welcome to MailFlow.');
+        return redirect()->route('dashboard')->with('success', 'Account created successfully! Welcome to MailVance.');
     }
 
     /**

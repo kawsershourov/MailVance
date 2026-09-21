@@ -76,7 +76,8 @@ class RolesAndPermissionsSeeder extends Seeder
         $all = PermissionRegistry::slugs();
 
         $adminOnly = array_keys(PermissionRegistry::all()['Administration']);
-        $sending = array_values(array_diff($all, $adminOnly));
+        $settingsOnly = array_keys(PermissionRegistry::all()['Settings']);
+        $sending = array_values(array_diff($all, $adminOnly, $settingsOnly));
 
         // Read-only across the sending modules — deliberately NOT the admin
         // ones, since users.view/roles.view expose the whole user directory.
@@ -90,8 +91,8 @@ class RolesAndPermissionsSeeder extends Seeder
             ],
             'admin' => [
                 'name' => 'Administrator',
-                'description' => 'Full platform access plus user and role management.',
-                'permissions' => $all,
+                'description' => 'Full platform access plus user and role management. Site settings remain Super Admin only.',
+                'permissions' => array_values(array_diff($all, $settingsOnly)),
             ],
             'manager' => [
                 'name' => 'Campaign Manager',

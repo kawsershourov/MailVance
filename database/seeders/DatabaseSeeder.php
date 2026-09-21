@@ -45,9 +45,9 @@ class DatabaseSeeder extends Seeder
                 'encryption' => 'tls',
                 'username' => 'postmaster@sandbox.mailgun.org',
                 'password' => 'secret_smtp_password',
-                'from_name' => 'MailFlow Updates',
-                'from_email' => 'news@mailflow.com',
-                'reply_to' => 'support@mailflow.com',
+                'from_name' => 'MailVance Updates',
+                'from_email' => 'news@mailvance.com',
+                'reply_to' => 'support@mailvance.com',
                 'is_default' => true,
             ]
         );
@@ -89,7 +89,7 @@ class DatabaseSeeder extends Seeder
                 'body_html' => '<div style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 32px 16px;">
     <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
         <div style="background: linear-gradient(135deg, #4f46e5, #7c3aed); padding: 32px; text-align: center; color: #ffffff;">
-            <h1 style="margin: 0; font-size: 24px; font-weight: 800;">MailFlow Special Newsletter</h1>
+            <h1 style="margin: 0; font-size: 24px; font-weight: 800;">MailVance Special Newsletter</h1>
             <p style="margin-top: 8px; font-size: 14px; opacity: 0.9;">Curated insights for {{first_name}} at {{company}}</p>
         </div>
         <div style="padding: 32px; color: #334155; line-height: 1.6;">
@@ -109,7 +109,7 @@ class DatabaseSeeder extends Seeder
 </div>',
                 'body_text' => 'Hi {{first_name}},
 
-Maximize your email deliverability with MailFlow.
+Maximize your email deliverability with MailVance.
 
 Visit: https://example.com
 

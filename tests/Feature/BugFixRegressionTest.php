@@ -34,7 +34,7 @@ class BugFixRegressionTest extends TestCase
             'encryption' => 'tls',
             'username' => 'relay-user',
             'password' => 'super-secret-relay-pw',
-            'from_name' => 'MailFlow',
+            'from_name' => 'MailVance',
             'from_email' => 'send@example.com',
         ], $overrides));
     }

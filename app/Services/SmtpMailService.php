@@ -113,17 +113,17 @@ class SmtpMailService
             $transport = $this->getTransport($config);
             $mailer = new Mailer($transport);
 
-            $fromEmail = $config->from_email ?: ($config->username ?: 'test@mailflow.local');
-            $fromName = $config->from_name ?: 'MailFlow Platform';
+            $fromEmail = $config->from_email ?: ($config->username ?: 'test@mailvance.local');
+            $fromName = $config->from_name ?: 'MailVance Platform';
 
             $email = (new Email)
                 ->from(new Address($fromEmail, $fromName))
                 ->to(new Address($toEmail))
-                ->subject('✅ MailFlow SMTP Test Diagnostic - '.date('Y-m-d H:i:s'))
+                ->subject('✅ MailVance SMTP Test Diagnostic - '.date('Y-m-d H:i:s'))
                 ->html('
                     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
                         <h2 style="color: #4f46e5; margin-top: 0;">🎉 SMTP Connection Successful!</h2>
-                        <p style="color: #334155; font-size: 14px; line-height: 1.6;">Your SMTP relay is properly configured and communicating with MailFlow.</p>
+                        <p style="color: #334155; font-size: 14px; line-height: 1.6;">Your SMTP relay is properly configured and communicating with MailVance.</p>
                         <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 13px;">
                             <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px; color: #64748b;"><strong>SMTP Host:</strong></td><td style="padding: 8px; color: #0f172a;">'.htmlspecialchars($config->host).'</td></tr>
                             <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px; color: #64748b;"><strong>Port:</strong></td><td style="padding: 8px; color: #0f172a;">'.$config->port.' ('.strtoupper($config->encryption ?? 'TLS').')</td></tr>
@@ -133,7 +133,7 @@ class SmtpMailService
                         <p style="color: #10b981; font-size: 13px; font-weight: bold;">🛡️ RFC 8058 One-Click Header Support: Active</p>
                     </div>
                 ')
-                ->text("MailFlow SMTP Test Connection Successful!
+                ->text("MailVance SMTP Test Connection Successful!
 Host: {$config->host}
 Port: {$config->port}
 Time: ".date('Y-m-d H:i:s'));
@@ -143,7 +143,7 @@ Time: ".date('Y-m-d H:i:s'));
             }
 
             // Anti-Spam Headers
-            $email->getHeaders()->addTextHeader('X-Mailer', 'MailFlow Enterprise Engine');
+            $email->getHeaders()->addTextHeader('X-Mailer', 'MailVance Enterprise Engine');
             $email->getHeaders()->addTextHeader('X-Priority', '3');
 
             $mailer->send($email);
@@ -217,8 +217,8 @@ Time: ".date('Y-m-d H:i:s'));
         $transport = $this->getTransport($config);
         $mailer = new Mailer($transport);
 
-        $fromEmail = $config->from_email ?: ($config->username ?: 'mailer@mailflow.local');
-        $fromName = $config->from_name ?: 'MailFlow Platform';
+        $fromEmail = $config->from_email ?: ($config->username ?: 'mailer@mailvance.local');
+        $fromName = $config->from_name ?: 'MailVance Platform';
 
         // Inject 1x1 Transparent Open Tracking Pixel
         $appUrl = rtrim(config('app.url'), '/');
@@ -250,7 +250,7 @@ Time: ".date('Y-m-d H:i:s'));
 
         // Anti-Spam & Deliverability Headers
         $headers = $email->getHeaders();
-        $headers->addTextHeader('X-Mailer', 'MailFlow Enterprise Engine');
+        $headers->addTextHeader('X-Mailer', 'MailVance Enterprise Engine');
         $headers->addTextHeader('X-Campaign-Token', $trackingToken);
 
         // RFC 8058 One-Click List-Unsubscribe Header (Mandatory for Google/Yahoo 2024+)

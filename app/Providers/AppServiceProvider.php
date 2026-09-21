@@ -2,12 +2,14 @@
 
 namespace App\Providers;
 
+use App\Models\SiteSetting;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 
@@ -35,6 +37,14 @@ class AppServiceProvider extends ServiceProvider
         Blade::if('anyrole', function (string ...$slugs) {
             return Auth::check() && Auth::user()->hasRole(...$slugs);
         });
+
+        // Site branding (logo/title/etc.) needs to reach the sidebar and the
+        // unauthenticated login/register pages alike, so it's a view composer
+        // rather than something each controller passes down.
+        View::composer(
+            ['layouts.app', 'layouts.sidebar-nav', 'auth.login', 'auth.register'],
+            fn ($view) => $view->with('siteSettings', SiteSetting::current())
+        );
 
         $this->configureRateLimiting();
         $this->configurePasswordPolicy();

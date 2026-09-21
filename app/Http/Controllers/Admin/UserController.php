@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\PermissionRegistry;
@@ -60,7 +59,6 @@ class UserController extends Controller
             'permissionGroups' => PermissionRegistry::all(),
             'rolePermissionMap' => $this->rolePermissionMap(),
             'assignedRoleIds' => [],
-            'overrides' => [],
         ]);
     }
 
@@ -77,8 +75,6 @@ class UserController extends Controller
             'is_active' => 'nullable|boolean',
             'roles' => 'nullable|array',
             'roles.*' => 'integer|exists:roles,id',
-            'overrides' => 'nullable|array',
-            'overrides.*' => 'string|in:allow,deny,inherit',
         ]);
 
         $user = User::create([
@@ -93,7 +89,6 @@ class UserController extends Controller
         ]);
 
         $user->roles()->sync($this->allowedRoleIds($request->input('roles', [])));
-        $this->syncOverrides($user->load('directPermissions'), $request->input('overrides', []));
 
         return redirect()->route('admin.users.index')->with('success', "User {$user->name} created.");
     }
@@ -102,7 +97,7 @@ class UserController extends Controller
     {
         $this->guardSuperAdminTarget($user);
 
-        $user->load('roles', 'directPermissions');
+        $user->load('roles');
 
         return view('admin.users.form', [
             'user' => $user,
@@ -110,9 +105,6 @@ class UserController extends Controller
             'permissionGroups' => PermissionRegistry::all(),
             'rolePermissionMap' => $this->rolePermissionMap(),
             'assignedRoleIds' => $user->roles->pluck('id')->all(),
-            'overrides' => $user->directPermissions->mapWithKeys(
-                fn ($permission) => [$permission->slug => $permission->pivot->granted ? 'allow' : 'deny']
-            )->all(),
         ]);
     }
 
@@ -131,8 +123,6 @@ class UserController extends Controller
             'is_active' => 'nullable|boolean',
             'roles' => 'nullable|array',
             'roles.*' => 'integer|exists:roles,id',
-            'overrides' => 'nullable|array',
-            'overrides.*' => 'string|in:allow,deny,inherit',
         ]);
 
         $attributes = [
@@ -161,7 +151,6 @@ class UserController extends Controller
             $this->guardLastSuperAdmin($user, $roleIds);
 
             $user->roles()->sync($roleIds);
-            $this->syncOverrides($user->load('directPermissions'), $request->input('overrides', []));
         }
 
         return redirect()->route('admin.users.index')->with('success', "User {$user->name} updated.");
@@ -251,64 +240,6 @@ class UserController extends Controller
         if ($remaining === 0) {
             abort(422, 'This is the last super admin — assign the role to someone else first.');
         }
-    }
-
-    /**
-     * Writes the per-user overrides. "inherit" (anything but allow/deny) simply
-     * drops the pivot row so the user's roles decide again.
-     *
-     * @param  array<string, string>  $overrides
-     */
-    protected function syncOverrides(User $user, array $overrides): void
-    {
-        $permissions = Permission::pluck('id', 'slug');
-        $grantable = array_flip($this->grantableSlugs());
-
-        // Overrides the actor cannot grant are left exactly as they are rather
-        // than dropped — sync() replaces the whole set, so without this an admin
-        // editing an unrelated field would silently strip permissions that were
-        // handed out by someone more privileged.
-        $sync = [];
-
-        foreach ($user->directPermissions as $existing) {
-            if (! isset($grantable[$existing->slug])) {
-                $sync[$existing->id] = ['granted' => (bool) $existing->pivot->granted];
-            }
-        }
-
-        foreach ($overrides as $slug => $mode) {
-            if (! isset($permissions[$slug]) || ! isset($grantable[$slug])) {
-                continue;
-            }
-
-            if (! in_array($mode, ['allow', 'deny'], true)) {
-                continue;
-            }
-
-            $sync[$permissions[$slug]] = ['granted' => $mode === 'allow'];
-        }
-
-        $user->directPermissions()->sync($sync);
-        $user->forgetPermissionCache();
-    }
-
-    /**
-     * The permissions the signed-in user is allowed to hand out.
-     *
-     * You cannot grant what you do not hold. `roles[]` was already filtered this
-     * way by allowedRoleIds(); `overrides[]` is the equally powerful sibling
-     * input, and without the same ceiling any account with users.update could
-     * escalate itself — or a puppet account — to every slug in the registry.
-     *
-     * @return list<string>
-     */
-    protected function grantableSlugs(): array
-    {
-        $actor = Auth::user();
-
-        return $actor->isSuperAdmin()
-            ? PermissionRegistry::slugs()
-            : $actor->permissionSlugs();
     }
 
     /**

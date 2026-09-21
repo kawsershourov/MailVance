@@ -8,8 +8,7 @@
 <div class="space-y-6 max-w-5xl"
      x-data="userAccessForm({
         selectedRoles: {{ json_encode(array_map('intval', old('roles', $assignedRoleIds))) }},
-        rolePermissions: {{ json_encode($rolePermissionMap) }},
-        overrides: {{ json_encode(old('overrides', $overrides)) }}
+        rolePermissions: {{ json_encode($rolePermissionMap) }}
      })">
 
     <div class="flex items-center gap-3">
@@ -21,7 +20,7 @@
                 {{ $isEditing ? $user->name : 'Create a new user' }}
             </h2>
             <p class="text-xs sm:text-sm text-slate-400 mt-0.5">
-                Set the account details, then grant access with roles and per-user overrides.
+                Set the account details, then grant access by assigning roles.
             </p>
         </div>
     </div>
@@ -137,28 +136,23 @@
             </div>
         </div>
 
-        <!-- Per-user permission overrides -->
+        <!-- Read-only effective access list -->
         <div class="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl space-y-5">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                    <h3 class="text-base font-bold text-white flex items-center gap-2">
-                        <i data-lucide="sliders-horizontal" class="w-4 h-4 text-brand-400"></i> Permission Overrides
-                    </h3>
-                    <p class="text-xs text-slate-400 mt-1">
-                        Fine-tune this one user. <strong class="text-slate-300">Inherit</strong> follows their roles,
-                        <strong class="text-emerald-300">Allow</strong> grants regardless, <strong class="text-rose-300">Deny</strong> revokes even if a role grants it.
-                    </p>
-                </div>
-                <button type="button" @click="overrides = {}"
-                        class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition self-start">
-                    Reset all to inherit
-                </button>
+            <div>
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i data-lucide="list-checks" class="w-4 h-4 text-brand-400"></i> Access List
+                </h3>
+                <p class="text-xs text-slate-400 mt-1">
+                    What this user can access, based on the role(s) selected above. Read-only —
+                    change it by adjusting their roles or editing a role's permissions at
+                    <a href="{{ route('admin.roles.index') }}" class="text-brand-400 hover:underline">Roles</a>.
+                </p>
             </div>
 
             <div x-show="hasSuperAdminRole" x-cloak
                  class="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-200 text-xs flex items-center gap-3">
                 <i data-lucide="crown" class="w-4 h-4 flex-shrink-0"></i>
-                This user holds the Super Admin role, so every permission is granted and overrides are ignored.
+                This user holds the Super Admin role, so every permission is granted.
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -168,30 +162,14 @@
 
                         <div class="space-y-2">
                             @foreach($permissions as $slug => $label)
-                                <div class="flex items-center justify-between gap-3">
+                                <label class="flex items-center gap-3 cursor-default">
+                                    <input type="checkbox" disabled :checked="inherited('{{ $slug }}')"
+                                           class="w-4 h-4 rounded bg-slate-950 border-slate-700 text-brand-600 disabled:opacity-100">
                                     <span class="text-xs min-w-0 truncate"
-                                          :class="effective('{{ $slug }}') ? 'text-slate-200' : 'text-slate-600'">
-                                        <i data-lucide="dot" class="w-3 h-3 inline-block"></i>{{ $label }}
+                                          :class="inherited('{{ $slug }}') ? 'text-slate-200' : 'text-slate-600'">
+                                        {{ $label }}
                                     </span>
-
-                                    <div class="flex items-center gap-2 flex-shrink-0">
-                                        <span class="text-[10px] uppercase tracking-wider hidden sm:inline"
-                                              :class="inherited('{{ $slug }}') ? 'text-emerald-500/70' : 'text-slate-700'"
-                                              x-text="inherited('{{ $slug }}') ? 'role: yes' : 'role: no'"></span>
-
-                                        <select name="overrides[{{ $slug }}]" x-model="overrides['{{ $slug }}']"
-                                                class="px-2 py-1 bg-slate-900 border border-slate-800 rounded-lg text-[11px] focus:ring-2 focus:ring-brand-500 focus:outline-none"
-                                                :class="{
-                                                    'text-emerald-300 border-emerald-500/30': overrides['{{ $slug }}'] === 'allow',
-                                                    'text-rose-300 border-rose-500/30': overrides['{{ $slug }}'] === 'deny',
-                                                    'text-slate-400': !overrides['{{ $slug }}']
-                                                }">
-                                            <option value="">Inherit</option>
-                                            <option value="allow">Allow</option>
-                                            <option value="deny">Deny</option>
-                                        </select>
-                                    </div>
-                                </div>
+                                </label>
                             @endforeach
                         </div>
                     </div>
@@ -214,7 +192,6 @@
         return {
             selectedRoles: config.selectedRoles || [],
             rolePermissions: config.rolePermissions || {},
-            overrides: config.overrides || {},
             superAdminRoleIds: @json($roles->filter->isSuperAdmin()->pluck('id')->values()),
 
             get hasSuperAdminRole() {
@@ -224,15 +201,6 @@
             /** Does any currently ticked role grant this permission? */
             inherited(slug) {
                 return this.selectedRoles.some(id => (this.rolePermissions[id] || []).includes(slug));
-            },
-
-            /** What the user would actually end up with once overrides apply. */
-            effective(slug) {
-                if (this.hasSuperAdminRole) return true;
-                const override = this.overrides[slug];
-                if (override === 'allow') return true;
-                if (override === 'deny') return false;
-                return this.inherited(slug);
             },
         };
     }

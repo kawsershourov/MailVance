@@ -173,7 +173,7 @@ class UserProfileAndPermissionsTest extends TestCase
         $this->actingAs($admin)->get(route('admin.users.create'))->assertStatus(200);
         $this->actingAs($admin)->get(route('admin.users.edit', $target->id))
             ->assertStatus(200)
-            ->assertSee('Permission Overrides');
+            ->assertSee('Access List');
 
         $this->actingAs($admin)->get(route('admin.roles.index'))
             ->assertStatus(200)
@@ -198,7 +198,7 @@ class UserProfileAndPermissionsTest extends TestCase
             ->assertDontSee($other->email);
     }
 
-    public function test_an_admin_can_create_a_user_with_roles_and_overrides(): void
+    public function test_an_admin_can_create_a_user_with_roles(): void
     {
         $admin = User::factory()->roles(['super-admin'])->create();
         $managerRole = Role::where('slug', 'manager')->first();
@@ -210,14 +210,13 @@ class UserProfileAndPermissionsTest extends TestCase
             'password_confirmation' => 'S3cretPassword!',
             'is_active' => 1,
             'roles' => [$managerRole->id],
-            'overrides' => ['campaigns.launch' => 'deny', 'users.view' => 'allow'],
         ])->assertRedirect(route('admin.users.index'));
 
         $created = User::where('email', 'teammate@example.com')->firstOrFail();
 
         $this->assertTrue($created->hasRole('manager'));
-        $this->assertFalse($created->hasPermission('campaigns.launch'), 'the deny override should win');
-        $this->assertTrue($created->hasPermission('users.view'), 'the allow override should grant');
+        $this->assertTrue($created->hasPermission('campaigns.launch'), 'granted by the manager role');
+        $this->assertFalse($created->hasPermission('users.view'), 'not part of the manager role');
     }
 
     public function test_a_non_super_admin_cannot_assign_the_super_admin_role(): void

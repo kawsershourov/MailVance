@@ -62,6 +62,9 @@ class PermissionRegistry
                 'roles.update' => 'Edit roles & their permissions',
                 'roles.delete' => 'Delete roles',
             ],
+            'Settings' => [
+                'settings.manage' => 'Manage site settings',
+            ],
         ];
     }
 

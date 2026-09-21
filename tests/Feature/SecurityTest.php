@@ -189,11 +189,15 @@ class SecurityTest extends TestCase
 
     /*
     |--------------------------------------------------------------------------
-    | H1 / H2 — privilege escalation through the permission editor
+    | H1 / H2 — privilege escalation through the user editor
     |--------------------------------------------------------------------------
+    | Per-user permission overrides were removed; access now comes only from
+    | roles. `overrides` in these payloads is stale/unrecognized input the
+    | controller no longer reads — kept here to confirm it's inert rather than
+    | silently reintroducing a way to hand out ungranted permissions.
     */
 
-    public function test_an_override_cannot_grant_a_permission_the_actor_lacks(): void
+    public function test_stray_override_input_grants_nothing(): void
     {
         $actor = $this->userWithPermissions('User Admin', ['users.view', 'users.update', 'users.create']);
         $target = User::factory()->withoutRoles()->create();
@@ -205,12 +209,13 @@ class SecurityTest extends TestCase
             'overrides' => ['campaigns.launch' => 'allow', 'roles.create' => 'allow'],
         ]);
 
-        // The actor holds neither slug, so neither may be handed out.
+        // Overrides are no longer read/persisted, so neither slug may appear.
         $this->assertFalse($target->fresh()->hasPermission('campaigns.launch'));
         $this->assertFalse($target->fresh()->hasPermission('roles.create'));
+        $this->assertDatabaseCount('permission_user', 0);
     }
 
-    public function test_a_user_cannot_edit_their_own_roles_or_overrides(): void
+    public function test_a_user_cannot_edit_their_own_roles(): void
     {
         $actor = $this->userWithPermissions('User Admin', ['users.view', 'users.update', 'users.create']);
 

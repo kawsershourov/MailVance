@@ -70,6 +70,7 @@ deploy, then re-save each relay so it is re-encrypted under the new key.
 ```bash
 php artisan migrate --force
 php artisan db:seed --class=RolesAndPermissionsSeeder   # required: without it nobody has any permission
+php artisan storage:link                                # required: serves uploaded Site Settings logo/favicon from public/storage
 php artisan config:cache && php artisan route:cache && php artisan view:cache
 ```
 
