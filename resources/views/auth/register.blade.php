@@ -26,7 +26,10 @@
         <div class="text-center mb-8">
             <div class="inline-flex items-center gap-3 mb-4">
                 @include('partials.site-logo', ['size' => 'lg'])
-                <span class="text-2xl font-extrabold tracking-tight text-white">{{ ($siteSettings ?? null)?->displayTitle() ?? 'MailVance' }}</span>
+                <div class="text-left leading-tight">
+                    <div class="text-2xl font-extrabold tracking-tight text-white">{{ ($siteSettings ?? null)?->displayTitle() ?? 'MailVance' }}</div>
+                    <div class="text-[11px] font-semibold text-brand-400 mt-0.5">Powered by Webvance IT</div>
+                </div>
             </div>
             <h2 class="text-3xl font-extrabold text-white tracking-tight">Create Account</h2>
             <p class="text-sm text-slate-400 mt-2">Start sending high-inbox email campaigns today</p>

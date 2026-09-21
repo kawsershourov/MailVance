@@ -41,8 +41,11 @@
 
 <div class="flex items-center justify-between gap-3 px-1 mb-6">
     <a href="{{ route('dashboard') }}" class="flex items-center gap-2.5 min-w-0">
-        @include('partials.site-logo', ['size' => 'sm'])
-        <span class="text-[15px] font-bold tracking-tight text-white truncate">{{ ($siteSettings ?? null)?->displayTitle() ?? 'MailVance' }}</span>
+        @include('partials.site-logo', ['size' => 'md'])
+        <div class="min-w-0 leading-tight">
+            <span class="block text-lg font-bold tracking-tight text-white truncate">{{ ($siteSettings ?? null)?->displayTitle() ?? 'MailVance' }}</span>
+            <span class="block text-[11px] font-semibold text-brand-400 truncate">Powered by Webvance IT</span>
+        </div>
     </a>
 
     <button @click="sidebarOpen = false"

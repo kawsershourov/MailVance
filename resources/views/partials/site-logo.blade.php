@@ -1,7 +1,15 @@
 @php
     $size ??= 'sm';
-    $boxClass = $size === 'lg' ? 'w-14 h-14 rounded-2xl' : 'w-9 h-9 rounded-lg';
-    $iconPx = $size === 'lg' ? 28 : 18;
+    $boxClass = match ($size) {
+        'lg' => 'w-14 h-14 rounded-2xl',
+        'md' => 'w-11 h-11 rounded-xl',
+        default => 'w-9 h-9 rounded-lg',
+    };
+    $iconPx = match ($size) {
+        'lg' => 28,
+        'md' => 22,
+        default => 18,
+    };
 @endphp
 
 @if(($siteSettings ?? null)?->logo_path)
